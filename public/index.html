@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BloodstockAI — BAI Score Analysis</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🐴</text></svg>">
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>html,body{margin:0;padding:0}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useRef,useCallback}=React;
+const KP0=[{id:"nose",label:"Nose",x:.92,y:.28,g:"head"},{id:"eye",label:"Eye",x:.88,y:.22,g:"head"},{id:"nearear",label:"Near Ear",x:.85,y:.15,g:"head"},{id:"farear",label:"Far Ear",x:.83,y:.14,g:"head"},{id:"poll",label:"Poll",x:.82,y:.18,g:"head"},{id:"throat",label:"Throatlatch",x:.84,y:.30,g:"head"},{id:"withers",label:"Withers",x:.68,y:.15,g:"top"},{id:"back",label:"Back",x:.55,y:.18,g:"top"},{id:"loin",label:"Loin",x:.42,y:.17,g:"top"},{id:"croup",label:"Croup",x:.30,y:.16,g:"top"},{id:"tailbase",label:"Tail Base",x:.22,y:.22,g:"top"},{id:"shoulder",label:"Shoulder",x:.75,y:.38,g:"fore"},{id:"elbow",label:"Elbow",x:.72,y:.50,g:"fore"},{id:"foreknee",label:"Fore Knee",x:.74,y:.62,g:"fore"},{id:"forefetlock",label:"Fore Fetlock",x:.75,y:.76,g:"fore"},{id:"forehoof",label:"Fore Hoof",x:.76,y:.88,g:"fore"},{id:"hip",label:"Hip Joint",x:.32,y:.32,g:"hind"},{id:"stifle",label:"Stifle",x:.34,y:.48,g:"hind"},{id:"hock",label:"Hock",x:.28,y:.62,g:"hind"},{id:"hindfetlock",label:"Hind Fetlock",x:.26,y:.76,g:"hind"},{id:"hindhoof",label:"Hind Hoof",x:.25,y:.88,g:"hind"},{id:"girth",label:"Girth",x:.65,y:.52,g:"barrel"}];
+const BONES=[["nose","eye"],["eye","nearear"],["eye","farear"],["eye","poll"],["poll","throat"],["poll","withers"],["throat","shoulder"],["withers","back"],["back","loin"],["loin","croup"],["croup","tailbase"],["shoulder","elbow"],["elbow","foreknee"],["foreknee","forefetlock"],["forefetlock","forehoof"],["shoulder","girth"],["withers","shoulder"],["croup","hip"],["hip","stifle"],["stifle","hock"],["hock","hindfetlock"],["hindfetlock","hindhoof"],["hip","girth"]];
+const GC={head:"#c4841d",top:"#1a6b3c",fore:"#1a3667",hind:"#7b2d8b",barrel:"#b91c1c"};
+const GL={head:"Head & Neck",top:"Topline",fore:"Forequarter",hind:"Hindquarter",barrel:"Barrel"};
+const HP="M 540,112 C 528,100 518,92 505,90 C 492,88 485,95 480,100 C 476,96 470,90 462,88 C 454,86 448,90 445,95 L 440,108 C 432,102 420,100 410,102 C 398,105 390,115 388,125 L 380,120 C 370,115 358,118 352,128 L 345,138 C 340,135 332,138 330,142 L 325,155 C 320,158 315,165 315,175 L 310,180 C 305,188 305,198 310,208 L 315,220 C 318,228 325,235 335,238 L 340,240 C 340,255 342,268 345,280 L 345,310 C 344,325 342,338 340,350 L 336,360 C 335,365 338,370 342,370 L 355,370 C 358,370 360,368 360,365 L 362,350 C 365,335 368,318 370,300 L 375,280 C 380,290 388,298 398,302 L 405,320 C 408,335 410,348 410,360 L 408,365 C 407,370 410,373 414,373 L 428,373 C 432,373 434,370 434,366 L 432,350 C 430,335 428,318 425,300 L 420,280 C 425,275 428,268 430,260 L 435,265 C 440,275 445,290 448,305 L 450,330 C 451,345 450,358 448,365 C 447,370 450,374 454,374 L 468,374 C 472,374 474,371 474,367 L 473,350 C 472,335 470,318 468,300 L 462,275 C 460,268 458,260 455,252 L 458,248 C 465,258 472,270 478,285 L 485,310 C 488,328 490,345 490,358 L 489,366 C 489,370 492,374 496,374 L 510,374 C 514,374 516,371 515,367 L 512,348 C 510,330 506,312 500,295 L 490,268 C 485,258 478,248 472,240 L 468,235 C 475,230 480,222 484,212 L 490,200 C 498,195 508,192 518,192 L 530,192 C 540,192 548,188 555,182 L 558,178 C 560,175 558,170 555,168 L 545,162 C 538,158 530,156 522,156 L 510,158 C 505,155 500,150 498,145 L 500,140 C 508,135 520,128 530,122 Z";
+const apiFetch=async(path,opts)=>{const r=await fetch(path,opts);if(r.status===202){const j=await r.json().catch(()=>({}));return{_pending:true,...j}}if(!r.ok){const t=await r.text().catch(()=>"");throw new Error(t||r.statusText)}return r.json()};
+function getBand(s){const B=[[90,"EXCEPTIONAL","#1a6b3c"],[80,"OUTSTANDING","#2d8b4e"],[70,"VERY STRONG","#1a3667"],[60,"ABOVE AVG","#6366F1"],[50,"AVERAGE","#c4841d"],[0,"BELOW AVG","#b91c1c"]];for(const b of B)if(s>=b[0])return{label:b[1],co:b[2]};return{label:"BELOW AVG",co:"#b91c1c"}}
+function SH({children,right}){return <div style={{background:"#1a3667",color:"#fff",padding:"6px 12px",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".04em",fontFamily:"Georgia,serif",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span>{children}</span>{right&&<span style={{fontSize:8,fontWeight:400,color:"#8a9ab5",textTransform:"none",letterSpacing:0,fontFamily:"Arial,sans-serif"}}>{right}</span>}</div>}
+function MR({label,value,even}){const co=value>=75?"#1a6b3c":value>=50?"#c4841d":"#b91c1c";return <div style={{display:"flex",alignItems:"center",padding:"4px 10px",fontSize:11,borderBottom:"1px solid #e5e7eb",background:even?"#f8f9fa":"#fff"}}><span style={{flex:1,color:"#333",fontSize:10,fontFamily:"Georgia,serif"}}>{label}</span><div style={{width:80,height:5,background:"#e5e7eb",borderRadius:1,marginRight:8}}><div style={{width:Math.min(100,value)+"%",height:"100%",background:co,borderRadius:1}}/></div><span style={{width:32,textAlign:"right",fontWeight:700,color:co,fontSize:11,fontFamily:"Courier New,monospace"}}>{Math.round(value)}</span></div>}
+function SG({data,color,h}){if(!data||data.length<2)return null;const mn=Math.min(...data),mx=Math.max(...data),rg=mx-mn||1;const pts=data.map((v,i)=>`${(i/(data.length-1))*100},${((1-(v-mn)/rg)*.85+.075)*100}`).join(" ");return <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{width:"100%",height:h||20,display:"block"}}><polyline points={pts} fill="none" stroke={color} strokeWidth="1.2" vectorEffect="non-scaling-stroke"/></svg>}
+
+function App(){
+  const[phase,setPhase]=useState("upload");const[gait,setGait]=useState("trot");
+  const[prog,setProg]=useState(0);const[progLabel,setProgLabel]=useState("");
+  const[videoFile,setVideoFile]=useState(null);const[frames,setFrames]=useState(null);
+  const[mvs,setMvs]=useState(null);const[baiData,setBaiData]=useState(null);
+  const[riskFlags,setRiskFlags]=useState([]);const[cf,setCf]=useState(0);
+  const[playing,setPlaying]=useState(false);const[speed,setSpeed]=useState(1);
+  const[selKp,setSelKp]=useState(null);const[hlG,setHlG]=useState(null);
+  const[showBones,setShowBones]=useState(true);const[showDots,setShowDots]=useState(true);
+  const[dlcModel,setDlcModel]=useState("");const[errMsg,setErrMsg]=useState(null);
+  const[history,setHistory]=useState(null);const[apiOk,setApiOk]=useState(null);
+  const[confScores,setConfScores]=useState(null);const[confOverall,setConfOverall]=useState(0);
+  const[videoInfo,setVideoInfo]=useState(null);
+  const playRef=useRef(null);const fps=30;
+  const curKp=frames&&frames[cf]?frames[cf].kps:KP0;
+  const meanConf=(curKp.reduce((a,k)=>a+(k.conf||0),0)/curKp.length).toFixed(3);
+
+  useEffect(()=>{
+    let t;const ck=()=>apiFetch("/api").then(d=>{setApiOk(true);setDlcModel(d.dlc_model||"");clearInterval(t)}).catch(()=>setApiOk(false));
+    ck();t=setInterval(ck,5000);return()=>clearInterval(t);
+  },[]);
+  const loadHistory=useCallback(()=>{apiFetch("/history?limit=20").then(d=>setHistory(d.items||[])).catch(()=>{})},[]);
+  useEffect(()=>{if(apiOk)loadHistory()},[apiOk,loadHistory]);
+
+  function applyResults(res){
+    setFrames(res.frames||[]);
+    const m=res.movement||{},met=m.metrics||{};
+    setMvs({overall:m.overall||0,sym:{s:met.symmetry||0,l:"Stride Symmetry"},rhy:{s:met.rhythm||0,l:"Rhythm"},tls:{s:met.toplineStability||0,l:"Topline Stability"},hcs:{s:met.headCarriage||0,l:"Head Carriage"},hke:{s:met.hockEngagement||0,l:"Hock Engagement"},sfs:{s:met.shoulderFreedom||0,l:"Shoulder Freedom"},fd:m.foreDeltas||[],hd:m.hindDeltas||[],strides:m.strides||0});
+    const b=res.baiScore||{};b.band=getBand(b.bai||0);setBaiData(b);
+    setRiskFlags(res.riskFlags||[]);setDlcModel(res.dlcModel||"");setVideoInfo(res.videoInfo||null);
+    if(res.conformation){setConfScores(res.conformation.scores||{});setConfOverall(res.conformation.overall||0)}
+    setCf(0);setPlaying(false);setPhase("results");setErrMsg(null);
+  }
+
+  const loadResult=useCallback(async(id)=>{try{const res=await apiFetch("/results/"+id);if(!res._pending)applyResults(res)}catch(e){setErrMsg("Load failed: "+e.message)}},[]);
+
+  const runAnalysis=useCallback(async()=>{
+    if(!videoFile){setErrMsg("Select a video file.");return}
+    setPhase("analyzing");setProg(0);setErrMsg(null);setProgLabel("Uploading...");
+    try{
+      const form=new FormData();form.append("file",videoFile);form.append("gait",gait);
+      const{jobId}=await apiFetch("/analyze",{method:"POST",body:form});
+      setProg(5);setProgLabel("Queued — waiting for GPU worker...");
+      const labels={pending_worker:"Waiting for GPU worker...",queued:"Queued...",reading_video:"Reading video...",running_dlc:"Running DeepLabCut...",parsing_keypoints:"Mapping keypoints...",computing_scores:"Computing BAI Score..."};
+      let done=false;let polls=0;
+      while(!done){await new Promise(r=>setTimeout(r,1500));polls++;
+        const st=await apiFetch("/status/"+jobId);
+        setProg(st.progress||Math.min(10,polls));
+        setProgLabel(labels[st.status]||st.status);
+        if(st.status==="complete"){const res=await apiFetch("/results/"+jobId);if(!res._pending){applyResults(res);loadHistory();done=true}}
+        else if(st.status==="error"){setErrMsg(st.error||"Failed");setPhase("upload");done=true}
+        if(polls>600){setErrMsg("Timeout — worker did not respond in 15 minutes");setPhase("upload");done=true}}
+    }catch(e){setErrMsg(e.message);setPhase("upload")}
+  },[videoFile,gait,loadHistory]);
+
+  useEffect(()=>{if(playing&&frames){playRef.current=setInterval(()=>{setCf(p=>{const n=p+1;if(n>=frames.length){setPlaying(false);return 0}return n})},(1000/fps)/speed)}return()=>clearInterval(playRef.current)},[playing,fps,speed,frames]);
+  const fullReset=()=>{setPhase("upload");setFrames(null);setMvs(null);setBaiData(null);setRiskFlags([]);setCf(0);setPlaying(false);setVideoFile(null);setErrMsg(null);setConfScores(null)};
+
+  return(<div style={{fontFamily:"Georgia,'Times New Roman',serif",background:"#eceef1",color:"#1a1a1a",minHeight:"100vh"}}>
+    <style>{`*{box-sizing:border-box;margin:0;padding:0}button:hover{opacity:.85}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#1a3667;cursor:pointer;border:1px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}`}</style>
+    <div style={{background:"#1a3667",padding:"0 16px",borderBottom:"3px solid #b91c1c"}}><div style={{maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:42}}>
+      <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{color:"#fff",fontSize:17,fontWeight:700}}>BloodstockAI</span><span style={{color:"#8a9ab5",fontSize:9,fontFamily:"Arial,sans-serif",letterSpacing:".04em",textTransform:"uppercase",borderLeft:"1px solid #3a5a8a",paddingLeft:8}}>BAI Score Analysis</span></div>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>{dlcModel&&<span style={{fontSize:8,color:"#8a9ab5",fontFamily:"Courier New,monospace",background:"rgba(255,255,255,.08)",padding:"2px 6px",borderRadius:2}}>{dlcModel}</span>}{apiOk===false&&<span style={{fontSize:8,color:"#fca5a5",fontFamily:"Arial,sans-serif"}}>Connecting...</span>}{phase==="results"&&<button onClick={fullReset} style={{background:"transparent",border:"1px solid #8a9ab5",borderRadius:2,padding:"3px 10px",color:"#c5d1e0",cursor:"pointer",fontSize:10,fontFamily:"Arial,sans-serif"}}>New</button>}</div>
+    </div></div>
+    <div style={{maxWidth:1100,margin:"0 auto",padding:"12px 8px 32px"}}>
+    {phase==="upload"&&<div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:12,alignItems:"start"}}>
+      <div>{apiOk===false&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",padding:"10px",marginBottom:8,fontSize:11,color:"#b91c1c",fontFamily:"Arial,sans-serif"}}>Connecting to backend... If this persists, check POSTGRES_URL in Vercel environment variables.</div>}
+        <div style={{background:"#fff",border:"1px solid #d1d5db"}}><SH right="DeepLabCut SuperAnimal-Quadruped">Upload Video</SH><div style={{padding:16}}>
+          <div style={{border:"2px dashed #d1d5db",padding:20,textAlign:"center",marginBottom:14,background:"#fafafa"}}><input type="file" accept="video/*" onChange={e=>{if(e.target.files[0])setVideoFile(e.target.files[0])}} style={{fontSize:11,fontFamily:"Arial,sans-serif"}}/>{videoFile&&<div style={{marginTop:6,fontSize:10,color:"#555",fontFamily:"Courier New,monospace"}}>{videoFile.name} ({(videoFile.size/1024/1024).toFixed(1)} MB)</div>}{!videoFile&&<div style={{marginTop:6,fontSize:10,color:"#999",fontFamily:"Arial,sans-serif"}}>MP4, MOV, AVI — max 100 MB</div>}</div>
+          <div style={{marginBottom:14}}><div style={{fontSize:9,fontWeight:700,color:"#1a3667",textTransform:"uppercase",marginBottom:5,fontFamily:"Arial,sans-serif",letterSpacing:".04em"}}>Gait</div><div style={{display:"flex",border:"1px solid #d1d5db"}}>{["walk","trot","canter","gallop"].map(g=><button key={g} onClick={()=>setGait(g)} style={{flex:1,padding:"7px 0",fontSize:11,fontWeight:gait===g?700:400,cursor:"pointer",background:gait===g?"#1a3667":"#fff",color:gait===g?"#fff":"#555",border:"none",borderRight:"1px solid #d1d5db",fontFamily:"Georgia,serif",outline:"none"}}>{g[0].toUpperCase()+g.slice(1)}</button>)}</div></div>
+          {errMsg&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",padding:"6px 10px",fontSize:10,color:"#b91c1c",marginBottom:10,fontFamily:"Arial,sans-serif"}}>{errMsg}</div>}
+          <button onClick={runAnalysis} disabled={!videoFile||apiOk===false} style={{width:"100%",background:!videoFile||apiOk===false?"#999":"#b91c1c",border:"none",padding:"11px",color:"#fff",cursor:!videoFile?"not-allowed":"pointer",fontSize:13,fontWeight:700,fontFamily:"Georgia,serif"}}>Upload &amp; Analyze</button>
+        </div></div>
+      </div>
+      <div style={{background:"#fff",border:"1px solid #d1d5db"}}><SH right={history?String(history.length):""}>History</SH><div style={{maxHeight:380,overflowY:"auto"}}>
+        {history&&history.length===0&&<div style={{padding:12,fontSize:10,color:"#888",textAlign:"center",fontFamily:"Arial,sans-serif"}}>No analyses yet</div>}
+        {history&&history.map(h=>{const co=h.baiScore?getBand(h.baiScore).co:"#888";return <div key={h.id} onClick={()=>h.status==="complete"&&loadResult(h.id)} style={{display:"flex",alignItems:"center",padding:"5px 10px",fontSize:10,borderBottom:"1px solid #e5e7eb",cursor:h.status==="complete"?"pointer":"default",background:"#fff",fontFamily:"Arial,sans-serif"}}><span style={{flex:1,color:"#333",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}}>{h.filename||h.id}</span><span style={{width:36,color:"#888",fontSize:9}}>{h.gait}</span><span style={{width:32,textAlign:"right",fontWeight:700,color:co,fontFamily:"Courier New,monospace"}}>{h.baiScore?Math.round(h.baiScore):"\u2014"}</span><span style={{width:65,textAlign:"right",fontSize:8,color:co,fontWeight:700}}>{h.baiBand||h.status}</span></div>})}
+        {!history&&<div style={{padding:12,fontSize:10,color:"#888",textAlign:"center"}}>Loading...</div>}
+      </div></div>
+    </div>}
+    {phase==="analyzing"&&<div style={{maxWidth:420,margin:"40px auto",background:"#fff",border:"1px solid #d1d5db"}}><SH>Processing</SH><div style={{padding:20,textAlign:"center"}}><div style={{fontSize:12,color:"#333",marginBottom:12}}>{progLabel}</div><div style={{background:"#e5e7eb",height:8,marginBottom:8}}><div style={{width:Math.max(2,prog)+"%",height:"100%",background:prog<10?"#c4841d":"#1a6b3c",transition:"width .3s"}}/></div><div style={{fontSize:10,color:"#888",fontFamily:"Courier New,monospace"}}>{prog}%</div>{prog<10&&<div style={{marginTop:12,fontSize:9,color:"#888",fontFamily:"Arial,sans-serif"}}>The GPU worker processes your video with DeepLabCut.<br/>This typically takes 30s–5min depending on video length.</div>}</div></div>}
+    {phase==="results"&&frames&&mvs&&baiData&&<div>
+      <div style={{background:"#fff",border:"1px solid #d1d5db",marginBottom:8}}><div style={{background:"#1a3667",padding:"7px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{color:"#fff",fontSize:12,fontWeight:700}}>BAI Score Report</span><span style={{color:"#8a9ab5",fontSize:9,fontFamily:"Arial,sans-serif"}}>{videoInfo?`${videoInfo.width}x${videoInfo.height} | ${videoInfo.duration}s | `:""}{frames.length}f | {dlcModel}</span></div>
+        <div style={{display:"flex",alignItems:"center",padding:"12px 16px",gap:20,flexWrap:"wrap"}}>
+          <div style={{textAlign:"center",minWidth:76}}><div style={{fontSize:34,fontWeight:700,color:baiData.band.co,lineHeight:1,fontFamily:"Courier New,monospace"}}>{Math.round(baiData.bai)}</div><div style={{fontSize:8,color:"#888",fontFamily:"Arial,sans-serif",marginTop:2}}>BAI / 100</div><div style={{display:"inline-block",background:baiData.band.co,color:"#fff",fontSize:8,fontWeight:700,padding:"2px 6px",marginTop:4,letterSpacing:".04em"}}>{baiData.band.label}</div></div>
+          <div style={{flex:1,minWidth:200}}><div style={{display:"flex",fontSize:8,color:"#888",padding:"0 0 3px",borderBottom:"1px solid #e5e7eb",fontFamily:"Arial,sans-serif",textTransform:"uppercase"}}><span style={{flex:1}}>Component</span><span style={{width:32,textAlign:"right"}}>Score</span><span style={{width:36,textAlign:"right"}}>Wt</span></div>
+            {[{c:"PIS",l:"Pedigree Intelligence",s:baiData.PIS,w:"35%"},{c:"PAS",l:"Performance Analytics",s:baiData.PAS,w:"30%"},{c:"CBS",l:"Conformation",s:baiData.CBS,w:"20%"},{c:"MVS",l:"Market Value",s:baiData.MVS,w:"15%"}].map((r,i)=>{const co=r.s>=75?"#1a6b3c":r.s>=50?"#c4841d":"#b91c1c";return <div key={r.c} style={{display:"flex",alignItems:"center",fontSize:10,padding:"3px 0",borderBottom:"1px solid #f0f0f0",background:i%2?"#fafafa":"#fff"}}><span style={{fontWeight:700,color:"#1a3667",width:30,fontFamily:"Courier New,monospace",fontSize:9}}>{r.c}</span><span style={{flex:1,color:"#555",fontFamily:"Arial,sans-serif",fontSize:9}}>{r.l}</span><span style={{width:32,textAlign:"right",fontWeight:700,color:co,fontFamily:"Courier New,monospace"}}>{r.s}</span><span style={{width:36,textAlign:"right",color:"#aaa",fontSize:9}}>{r.w}</span></div>})}</div>
+          {riskFlags.length>0&&<div style={{minWidth:130}}><div style={{fontSize:9,color:"#b91c1c",fontWeight:700,marginBottom:3,fontFamily:"Arial,sans-serif",textTransform:"uppercase"}}>Risk Flags</div>{riskFlags.map((r,i)=><div key={i} style={{fontSize:9,color:r.level==="high"?"#b91c1c":"#c4841d",fontFamily:"Arial,sans-serif",lineHeight:1.5}}>{r.level==="high"?"\u25B2":"\u25B3"} {r.area}: {r.note}</div>)}</div>}
+        </div></div>
+      <div style={{background:"#fff",border:"1px solid #d1d5db",padding:"7px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+        <button onClick={()=>setCf(Math.max(0,cf-1))} style={{background:"#eee",border:"1px solid #ccc",padding:"3px 8px",cursor:"pointer",fontSize:11}}>{"\u25C2"}</button>
+        <button onClick={()=>setPlaying(!playing)} style={{background:playing?"#b91c1c":"#1a3667",border:"none",padding:"4px 14px",color:"#fff",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"Arial,sans-serif"}}>{playing?"PAUSE":"PLAY"}</button>
+        <button onClick={()=>setCf(Math.min(frames.length-1,cf+1))} style={{background:"#eee",border:"1px solid #ccc",padding:"3px 8px",cursor:"pointer",fontSize:11}}>{"\u25B8"}</button>
+        <input type="range" min={0} max={frames.length-1} value={cf} onChange={e=>{setPlaying(false);setCf(+e.target.value)}} style={{flex:1,minWidth:80,height:4,WebkitAppearance:"none",appearance:"none",background:"#d1d5db",borderRadius:2,outline:"none",cursor:"pointer"}}/>
+        <span style={{fontSize:9,color:"#888",fontFamily:"Courier New,monospace",whiteSpace:"nowrap"}}>F{cf}/{frames.length} {(cf/fps).toFixed(2)}s</span>
+        <div style={{display:"flex",border:"1px solid #d1d5db"}}>{[.5,1,2].map(s=><button key={s} onClick={()=>setSpeed(s)} style={{padding:"2px 6px",fontSize:9,background:speed===s?"#1a3667":"#fff",color:speed===s?"#fff":"#555",border:"none",borderRight:"1px solid #d1d5db",cursor:"pointer",fontFamily:"Courier New,monospace"}}>{s}x</button>)}</div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1.1fr .9fr 240px",gap:8,alignItems:"start"}}>
+        <div style={{background:"#fff",border:"1px solid #d1d5db"}}><SH>Pose Tracking</SH><div style={{background:"#1a2233"}}><svg viewBox="0 0 600 400" style={{width:"100%",display:"block"}}><rect width="600" height="400" fill="#1a2233"/><line x1="0" y1="368" x2="600" y2="368" stroke="rgba(255,255,255,.06)"/><g opacity=".08"><path d={HP} fill="#fff"/></g>
+          {showBones&&BONES.map(([a,b],i)=>{const pa=curKp.find(k=>k.id===a),pb=curKp.find(k=>k.id===b);if(!pa||!pb)return null;const dim=hlG&&pa.g!==hlG&&pb.g!==hlG;return <line key={i} x1={pa.x*600} y1={pa.y*400} x2={pb.x*600} y2={pb.y*400} stroke={dim?"rgba(255,255,255,.08)":GC[pa.g]} strokeWidth={dim?1:2} strokeOpacity={dim?.3:.9} strokeLinecap="round"/>})}
+          {showDots&&curKp.map(kp=>{const sel=selKp===kp.id,dim=hlG&&kp.g!==hlG,co=GC[kp.g],r=sel?6:3.5;return <g key={kp.id} style={{cursor:"pointer"}} onClick={()=>setSelKp(selKp===kp.id?null:kp.id)}><circle cx={kp.x*600} cy={kp.y*400} r={r} fill={co} opacity={dim?.15:1} stroke="#fff" strokeWidth={sel?1.5:.5} strokeOpacity={dim?.1:.6}/>{sel&&<><rect x={kp.x*600-24} y={kp.y*400-15} width={48} height={11} rx={2} fill="rgba(0,0,0,.85)"/><text x={kp.x*600} y={kp.y*400-7} textAnchor="middle" fill="#fff" fontSize="7" fontWeight="600" fontFamily="Arial,sans-serif">{kp.label}</text></>}</g>})}
+          <text x="8" y="14" fill="rgba(255,255,255,.5)" fontSize="8" fontFamily="Courier New,monospace">F{cf} {(cf/fps).toFixed(2)}s</text><text x="592" y="14" fill="rgba(255,255,255,.5)" fontSize="8" fontFamily="Courier New,monospace" textAnchor="end">conf {meanConf}</text></svg></div>
+          <div style={{display:"flex",alignItems:"center",padding:"5px 10px",gap:6,borderTop:"1px solid #e5e7eb",flexWrap:"wrap"}}><label style={{fontSize:9,color:"#555",fontFamily:"Arial,sans-serif",cursor:"pointer",display:"flex",alignItems:"center",gap:3}}><input type="checkbox" checked={showBones} onChange={()=>setShowBones(!showBones)} style={{accentColor:"#1a3667"}}/> Bones</label><label style={{fontSize:9,color:"#555",fontFamily:"Arial,sans-serif",cursor:"pointer",display:"flex",alignItems:"center",gap:3}}><input type="checkbox" checked={showDots} onChange={()=>setShowDots(!showDots)} style={{accentColor:"#1a3667"}}/> Points</label><div style={{marginLeft:"auto",display:"flex",gap:5}}>{Object.entries(GC).map(([g,c])=><span key={g} onMouseEnter={()=>setHlG(g)} onMouseLeave={()=>setHlG(null)} style={{display:"inline-flex",alignItems:"center",gap:2,cursor:"pointer",opacity:hlG&&hlG!==g?.25:1,transition:"opacity .2s"}}><span style={{width:6,height:6,borderRadius:1,background:c,display:"inline-block"}}/><span style={{fontSize:7,color:"#888",fontFamily:"Arial,sans-serif"}}>{GL[g]}</span></span>)}</div></div></div>
+        <div style={{background:"#fff",border:"1px solid #d1d5db"}}><SH>Movement</SH><div style={{padding:"8px 0"}}><div style={{display:"flex",alignItems:"center",padding:"0 12px 6px",borderBottom:"1px solid #e5e7eb"}}><span style={{fontSize:26,fontWeight:700,color:mvs.overall>=70?"#1a6b3c":mvs.overall>=50?"#c4841d":"#b91c1c",fontFamily:"Courier New,monospace",lineHeight:1}}>{Math.round(mvs.overall)}</span><span style={{fontSize:9,color:"#888",marginLeft:4,fontFamily:"Arial,sans-serif"}}>/100</span></div>
+          {["sym","rhy","tls","hcs","hke","sfs"].map((k,i)=>{const d=mvs[k];if(!d)return null;return <MR key={k} label={d.l} value={d.s} even={i%2===1}/>})}</div>
+          <div style={{borderTop:"1px solid #e5e7eb",padding:"6px 12px"}}><div style={{fontSize:8,color:"#888",fontFamily:"Arial,sans-serif",textTransform:"uppercase",marginBottom:3}}>Stride</div><div style={{display:"flex",gap:8}}><div style={{flex:1}}><div style={{fontSize:7,color:"#aaa",marginBottom:1}}>FORE</div><SG data={mvs.fd} color="#1a3667" h={22}/></div><div style={{flex:1}}><div style={{fontSize:7,color:"#aaa",marginBottom:1}}>HIND</div><SG data={mvs.hd} color="#7b2d8b" h={22}/></div></div></div></div>
+        <div style={{background:"#fff",border:"1px solid #d1d5db"}}><SH>Conformation</SH><div style={{padding:"8px 0"}}><div style={{display:"flex",alignItems:"center",padding:"0 10px 5px",borderBottom:"1px solid #e5e7eb"}}><span style={{fontSize:22,fontWeight:700,color:confOverall>=70?"#1a6b3c":confOverall>=50?"#c4841d":"#b91c1c",fontFamily:"Courier New,monospace",lineHeight:1}}>{Math.round(confOverall)}</span><span style={{fontSize:9,color:"#888",marginLeft:4}}>CBS</span></div>
+          {confScores&&Object.values(confScores).map((s,i)=>{const p=s.pct||0,co=p>=75?"#1a6b3c":p>=50?"#c4841d":"#b91c1c";return <div key={s.label||i} style={{display:"flex",alignItems:"center",padding:"3px 10px",fontSize:10,borderBottom:"1px solid #e5e7eb",background:i%2?"#f8f9fa":"#fff",fontFamily:"Courier New,monospace"}}><span style={{flex:1,color:"#333",fontSize:9,fontFamily:"Arial,sans-serif"}}>{s.label}</span><span style={{width:46,textAlign:"right",fontWeight:700,color:co}}>{typeof s.value==="number"?s.value.toFixed(1):s.value}</span><span style={{width:40,textAlign:"right",color:"#999",fontSize:9}}>{s.ideal}</span><span style={{width:32,textAlign:"right",fontWeight:700,color:co,fontSize:9}}>{Math.round(p)}%</span></div>})}</div>
+          {selKp&&(()=>{const f=curKp.find(k=>k.id===selKp);if(!f)return null;return <div style={{borderTop:"1px solid #e5e7eb",padding:"5px 10px"}}><span style={{fontWeight:700,fontSize:11}}>{f.label}</span> <span style={{fontSize:9,color:"#888",fontFamily:"Courier New,monospace"}}>({(f.x*100).toFixed(1)}%,{(f.y*100).toFixed(1)}%) conf {(f.conf||0).toFixed(3)}</span></div>})()}
+        </div>
+      </div>
+    </div>}
+    </div></div>)
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
